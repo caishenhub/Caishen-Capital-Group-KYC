@@ -1,14 +1,13 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { AppStatus, DocumentKey, VerificationState } from './types';
+import { AppStatus, DocumentKey, VerificationState, DocumentInfo } from './types';
 import Header from './components/Header';
-import ProgressBar from './components/ProgressBar';
 import KycCard from './components/KycCard';
 import SuccessView from './components/SuccessView';
 import PrivacyNotice from './components/PrivacyNotice';
 
-// CONFIGURACIÓN: URL de la aplicación web de Google Apps Script
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxY3Yc72oLktyHwRyNgGa5AaPAHnAGj-s4kyjKqbAGKGa2C45LKVYHZJBN9L63R_Ap9/exec';
+// Nueva URL de implementación proporcionada por el usuario
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdUG1NUAO9LScmUBh-eF9dUUp0QTUntrq7hoIA-GfMOORFU0CEfB0O3hyADfyutEQ/exec';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.UPLOADING_PHASE);
@@ -16,6 +15,7 @@ const App: React.FC = () => {
     front: { file: null, previewUrl: null, error: null },
     back: { file: null, previewUrl: null, error: null },
     residence: { file: null, previewUrl: null, error: null },
+    selfie: { file: null, previewUrl: null, error: null },
   });
 
   const handleFileChange = useCallback((key: DocumentKey, file: File | null) => {
@@ -28,13 +28,13 @@ const App: React.FC = () => {
     }
 
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    const maxSize = 10 * 1024 * 1024; // 10MB limit
+    const maxSize = 12 * 1024 * 1024;
 
     let error = null;
     if (!validTypes.includes(file.type)) {
-      error = 'Formato no permitido. Use JPG o PNG.';
+      error = 'Formato no permitido (JPG/PNG)';
     } else if (file.size > maxSize) {
-      error = 'El archivo supera el límite de 10 MB.';
+      error = 'Máximo 12 MB permitido';
     }
 
     const previewUrl = error ? null : URL.createObjectURL(file);
@@ -49,7 +49,7 @@ const App: React.FC = () => {
   }, []);
 
   const isComplete = useMemo(() => {
-    return !!(state.front.file && state.back.file && state.residence.file);
+    return !!(state.front.file && state.back.file && state.residence.file && state.selfie.file);
   }, [state]);
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -61,128 +61,138 @@ const App: React.FC = () => {
     });
   };
 
-  const uploadToGoogleDrive = async (data: VerificationState) => {
-    console.log('🚀 Iniciando proceso de envío a Google Drive...');
-    
-    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('TU_URL')) {
-      throw new Error("Falta configurar la URL de Google Apps Script");
-    }
-
-    try {
-      const payload = {
-        front: await fileToBase64(data.front.file!),
-        back: await fileToBase64(data.back.file!),
-        residence: await fileToBase64(data.residence.file!),
-        metadata: {
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString()
-        }
-      };
-
-      console.log('📦 Payload generado con éxito. Enviando datos...');
-
-      // Usamos no-cors por compatibilidad con Apps Script redirects
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log('✅ Petición enviada al servidor. Verifique su Google Drive en unos segundos.');
-      return true;
-    } catch (error) {
-      console.error('❌ Error durante la carga:', error);
-      throw error;
-    }
-  };
-
   const handleSubmit = async () => {
     if (!isComplete) return;
     setStatus(AppStatus.SUBMITTING);
     
     try {
-      await uploadToGoogleDrive(state);
-      
-      // Espera de seguridad para feedback visual
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
+      const [front, back, residence, selfie] = await Promise.all([
+        fileToBase64(state.front.file!),
+        fileToBase64(state.back.file!),
+        fileToBase64(state.residence.file!),
+        fileToBase64(state.selfie.file!)
+      ]);
+
+      const payload = {
+        front,
+        back,
+        residence,
+        selfie, // Esta clave debe coincidir con data.selfie en tu Google Apps Script
+        metadata: {
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+          platform: 'Caishen Digital Onboarding'
+        }
+      };
+
+      // Se usa mode: 'no-cors' para evitar problemas de CORS con Google Apps Script
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload),
+      });
+
+      // En modo no-cors no podemos leer la respuesta, así que asumimos éxito si no hay error de red
       setStatus(AppStatus.SUCCESS);
       
-      // Limpiar estados
-      setState({
-        front: { file: null, previewUrl: null, error: null },
-        back: { file: null, previewUrl: null, error: null },
-        residence: { file: null, previewUrl: null, error: null },
+      // Limpiar URLs de previsualización para liberar memoria
+      (Object.values(state) as DocumentInfo[]).forEach(doc => {
+        if (doc.previewUrl) URL.revokeObjectURL(doc.previewUrl);
       });
+
     } catch (err) {
-      console.error('🛑 Fallo en la sumisión:', err);
-      alert('Hubo un problema al enviar los documentos. Por favor, intente de nuevo o verifique su conexión.');
+      console.error('Error al enviar:', err);
+      alert('Error de conexión al enviar los documentos. Por favor, intente de nuevo.');
       setStatus(AppStatus.UPLOADING_PHASE);
     }
   };
 
-  const currentProgressStep = useMemo(() => {
-    if (status === AppStatus.SUCCESS) return 4;
-    if (state.residence.file) return 3;
-    if (state.back.file) return 2;
-    if (state.front.file) return 1;
-    return 0;
-  }, [state, status]);
-
   if (status === AppStatus.SUCCESS) {
-    return <SuccessView onReset={() => setStatus(AppStatus.UPLOADING_PHASE)} />;
+    return (
+      <div className="min-h-screen bg-[#f3f4f6] flex items-center justify-center p-4 md:p-10">
+        <SuccessView onReset={() => setStatus(AppStatus.UPLOADING_PHASE)} />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12 transition-all duration-300">
-      <Header />
-      <main className="max-w-xl mx-auto px-4 mt-8">
-        <ProgressBar currentStep={currentProgressStep} />
-        <div className="space-y-6 mt-8">
-          <KycCard 
-            title="Documento de Identidad – Frente" 
-            description="Asegúrese de que el nombre y la foto sean visibles." 
-            docKey="front" 
-            info={state.front} 
-            onFileChange={handleFileChange} 
-            disabled={status === AppStatus.SUBMITTING} 
-          />
-          <KycCard 
-            title="Documento de Identidad – Reverso" 
-            description="Capture la parte posterior con todos los códigos legibles." 
-            docKey="back" 
-            info={state.back} 
-            onFileChange={handleFileChange} 
-            disabled={status === AppStatus.SUBMITTING} 
-          />
-          <KycCard 
-            title="Comprobante de Residencia" 
-            description="Recibo de servicio público no mayor a 3 meses." 
-            docKey="residence" 
-            info={state.residence} 
-            onFileChange={handleFileChange} 
-            disabled={status === AppStatus.SUBMITTING} 
-          />
+    <div className="min-h-screen bg-[#f3f4f6] flex flex-col items-center">
+      <div className="w-full max-w-[700px] md:my-10">
+        <div className="bg-white rounded-none md:rounded-3xl shadow-soft flex flex-col overflow-hidden border border-slate-100 min-h-screen md:min-h-0">
+          <Header />
+          
+          <div className="flex-1 px-6 sm:px-10 md:px-14 pt-4 pb-20">
+            <KycCard 
+              number={1}
+              title="Identidad (Frente)" 
+              description="Documento oficial vigente con fotografía." 
+              docKey="front" 
+              info={state.front} 
+              onFileChange={handleFileChange} 
+              disabled={status === AppStatus.SUBMITTING} 
+            />
+            <KycCard 
+              number={2}
+              title="Identidad (Reverso)" 
+              description="Reverso del documento con códigos de barras." 
+              docKey="back" 
+              info={state.back} 
+              onFileChange={handleFileChange} 
+              disabled={status === AppStatus.SUBMITTING} 
+            />
+            <KycCard 
+              number={3}
+              title="Prueba de Domicilio" 
+              description="Comprobante de domicilio (Agua, Luz o Gas)." 
+              docKey="residence" 
+              info={state.residence} 
+              onFileChange={handleFileChange} 
+              disabled={status === AppStatus.SUBMITTING} 
+            />
+            <KycCard 
+              number={4}
+              title="Verificación Facial" 
+              description="Tómese una foto clara mirando a la cámara." 
+              docKey="selfie" 
+              info={state.selfie} 
+              onFileChange={handleFileChange} 
+              disabled={status === AppStatus.SUBMITTING} 
+            />
+
+            <div className="form-section-header mt-12">
+              <div className="section-number">5</div>
+              <h3 className="section-title">Finalizar Proceso</h3>
+            </div>
+            
+            <div className="field-container bg-[#f8f9fb] border-none text-center py-10 md:py-12">
+              <p className="text-[#8e9aaf] text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] mb-6 md:mb-8">
+                Confirmación de Información
+              </p>
+              <button 
+                onClick={handleSubmit} 
+                disabled={!isComplete || status === AppStatus.SUBMITTING} 
+                className={`w-full max-w-sm md:max-w-md mx-auto py-5 md:py-6 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-[0.3em] transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
+                  isComplete && status !== AppStatus.SUBMITTING 
+                  ? 'bg-[#ceff04] text-[#1d1c2d] shadow-lg hover:shadow-[#ceff04]/30 hover:-translate-y-1' 
+                  : 'bg-gray-200 text-[#9ba3af] cursor-not-allowed opacity-70'
+                }`}
+              >
+                {status === AppStatus.SUBMITTING ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[#1d1c2d] border-t-transparent rounded-full animate-spin"></div>
+                    Enviando...
+                  </>
+                ) : (
+                  'Enviar Verificación'
+                )}
+              </button>
+            </div>
+            
+            <PrivacyNotice />
+          </div>
         </div>
-        <button 
-          onClick={handleSubmit} 
-          disabled={!isComplete || status === AppStatus.SUBMITTING} 
-          className={`w-full mt-10 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 flex items-center justify-center gap-3 ${isComplete && status !== AppStatus.SUBMITTING ? 'bg-[#ceff04] text-[#1d1c2d] shadow-lg hover:shadow-xl hover:bg-[#dfff00]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-        >
-          {status === AppStatus.SUBMITTING ? (
-            <>
-              <div className="w-5 h-5 border-2 border-navy border-t-transparent rounded-full animate-spin"></div>
-              Procesando envío seguro...
-            </>
-          ) : (
-            'Enviar verificación'
-          )}
-        </button>
-        <PrivacyNotice />
-      </main>
+      </div>
     </div>
   );
 };

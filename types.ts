@@ -1,5 +1,4 @@
-
-export type DocumentKey = 'front' | 'back' | 'residence';
+export type DocumentKey = 'front' | 'back' | 'residence' | 'selfie';
 
 export interface DocumentInfo {
   file: File | null;
@@ -11,6 +10,7 @@ export interface VerificationState {
   front: DocumentInfo;
   back: DocumentInfo;
   residence: DocumentInfo;
+  selfie: DocumentInfo;
 }
 
 export enum AppStatus {

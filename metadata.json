@@ -3,5 +3,6 @@
   "description": "A professional and secure identity verification portal for Caishen Capital Group, designed for high-conversion KYC workflows with a modern fintech aesthetic.",
   "requestFramePermissions": [
     "camera"
-  ]
+  ],
+  "pwa": true
 }
