@@ -94,7 +94,6 @@ const KycCard: React.FC<KycCardProps> = ({ number, title, docKey, info, onFileCh
             </div>
 
             <div className="flex flex-col gap-3">
-              {/* Información del archivo */}
               <div className="bg-white border border-gray-100 rounded-xl p-3 flex items-center shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 shrink-0">
                   <svg className={`w-4 h-4 ${info.file ? 'text-[#ceff04]' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
@@ -106,7 +105,6 @@ const KycCard: React.FC<KycCardProps> = ({ number, title, docKey, info, onFileCh
                 </span>
               </div>
 
-              {/* Botones de acción mejorados */}
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsCameraOpen(true)}
@@ -160,6 +158,7 @@ const KycCard: React.FC<KycCardProps> = ({ number, title, docKey, info, onFileCh
           onCapture={handleCameraCapture}
           onClose={() => setIsCameraOpen(false)}
           facingMode={docKey === 'selfie' ? 'user' : 'environment'}
+          docKey={docKey}
         />
       )}
     </div>

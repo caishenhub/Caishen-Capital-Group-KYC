@@ -1,14 +1,17 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { DocumentKey } from '../types';
 
 interface CameraOverlayProps {
   onCapture: (file: File) => void;
   onClose: () => void;
   facingMode?: 'user' | 'environment';
   title: string;
+  docKey: DocumentKey;
 }
 
-export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose, facingMode = 'environment', title }) => {
+export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose, facingMode = 'environment', title, docKey }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -78,11 +81,42 @@ export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose
     }
   };
 
-  // Renderizamos a través de un Portal para evitar que los transforms de los padres afecten al fixed
+  const renderFramingGuide = () => {
+    if (isLoading || error) return null;
+
+    if (docKey === 'selfie') {
+      return (
+        <div className="w-[80vw] h-[100vw] max-w-[300px] max-h-[380px] border-[3px] border-[#ceff04] rounded-[160px] shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex flex-col items-center justify-end pb-12">
+          <div className="bg-[#ceff04] text-[#1d1c2d] px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-[0_0_40px_rgba(206,255,4,0.4)]">
+            Rostro en el centro
+          </div>
+        </div>
+      );
+    }
+
+    if (docKey === 'residence') {
+      return (
+        <div className="w-[80vw] h-[110vw] max-w-[400px] max-h-[550px] border-[3px] border-white/40 rounded-[20px] shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex flex-col items-center justify-end pb-8">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl">
+            Factura / Recibo (Formato Carta)
+          </div>
+        </div>
+      );
+    }
+
+    // Default: ID Card (Front/Back)
+    return (
+      <div className="w-[88vw] aspect-[1.58/1] max-w-[500px] border-[3px] border-white/40 rounded-[40px] shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex flex-col items-center justify-end pb-8">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl">
+          Encuadre el Documento
+        </div>
+      </div>
+    );
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col h-[100dvh] w-screen overflow-hidden animate-fade-in">
       
-      {/* Header superior con degradado para lectura */}
       <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black via-black/40 to-transparent flex items-start justify-between px-8 pt-10 z-30">
         <div className="flex flex-col">
           <div className="flex items-center gap-2 mb-1.5">
@@ -102,7 +136,6 @@ export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose
         </button>
       </div>
 
-      {/* Visor de Cámara */}
       <div className="relative flex-1 w-full bg-[#050508] flex items-center justify-center overflow-hidden">
         {isLoading && (
           <div className="flex flex-col items-center z-20">
@@ -136,27 +169,11 @@ export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose
           />
         )}
         
-        {/* Guías de Encuadre Inteligente */}
-        {!isLoading && !error && (
-          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
-            {facingMode === 'user' ? (
-              <div className="w-[80vw] h-[100vw] max-w-[300px] max-h-[380px] border-[3px] border-[#ceff04] rounded-[160px] shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex flex-col items-center justify-end pb-12">
-                <div className="bg-[#ceff04] text-[#1d1c2d] px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-[0_0_40px_rgba(206,255,4,0.4)]">
-                  Rostro en el centro
-                </div>
-              </div>
-            ) : (
-              <div className="w-[88vw] aspect-[1.58/1] max-w-[500px] border-[3px] border-white/40 rounded-[40px] shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex flex-col items-center justify-end pb-8">
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl">
-                  Encuadre el Documento
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
+          {renderFramingGuide()}
+        </div>
       </div>
 
-      {/* Footer de controles */}
       <div className="h-44 bg-black flex flex-col items-center justify-center px-10 relative z-30 border-t border-white/5">
         {!isLoading && !error && (
           <div className="flex flex-col items-center gap-5">
