@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -84,7 +85,13 @@
         }
         .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
 
-        /* Ajustes específicos para móviles para evitar saltos de UI */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
+
         html, body, #root {
             height: 100%;
             overflow-x: hidden;
@@ -93,10 +100,12 @@
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
+    "react-dom": "https://esm.sh/react-dom@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.4"
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "qrcode": "https://esm.sh/qrcode@^1.5.4"
   }
 }
 </script>
@@ -105,7 +114,6 @@
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
-        // Registro del Service Worker para habilitar capacidades PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => {

@@ -7,7 +7,7 @@ interface SuccessViewProps {
 
 const SuccessView: React.FC<SuccessViewProps> = ({ onReset }) => {
   const handleFinalize = () => {
-    window.location.href = 'https://caishencapital.co/';
+    window.location.href = 'https://caishencapitalgroup.com/';
   };
 
   return (

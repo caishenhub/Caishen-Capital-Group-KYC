@@ -1,4 +1,7 @@
+
 export type DocumentKey = 'front' | 'back' | 'residence' | 'selfie';
+
+export type AlignmentStatus = 'neutral' | 'good' | 'poor' | 'scanning';
 
 export interface DocumentInfo {
   file: File | null;
