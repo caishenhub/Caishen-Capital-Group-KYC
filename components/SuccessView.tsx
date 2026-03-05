@@ -8,7 +8,7 @@ interface SuccessViewProps {
 const SuccessView: React.FC<SuccessViewProps> = ({ onReset }) => {
   const handleFinalize = () => {
     // Actualizado al dominio correcto solicitado por el usuario
-    window.location.href = 'https://caishencapitalgroup.com/';
+    window.location.href = 'https://app.caishencapitalgroup.com/';
   };
 
   return (

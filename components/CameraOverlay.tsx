@@ -19,6 +19,9 @@ export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    let localStream: MediaStream | null = null;
+
     async function setupCamera() {
       try {
         const constraints = {
@@ -31,25 +34,44 @@ export const CameraOverlay: React.FC<CameraOverlayProps> = ({ onCapture, onClose
         };
         
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (!isMounted) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        localStream = mediaStream;
         setStream(mediaStream);
         
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
-          await videoRef.current.play();
+          try {
+            await videoRef.current.play();
+          } catch (playError: any) {
+            // Ignore interruption errors as they are expected during rapid unmounts/reloads
+            if (playError.name !== 'AbortError') {
+              console.error("Video play error:", playError);
+            }
+          }
         }
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       } catch (err) {
-        console.error("Error accessing camera:", err);
-        setError("Acceso denegado. Por favor, habilite los permisos de cámara en su navegador.");
-        setIsLoading(false);
+        if (isMounted) {
+          console.error("Error accessing camera:", err);
+          setError("Acceso denegado. Por favor, habilite los permisos de cámara en su navegador.");
+          setIsLoading(false);
+        }
       }
     }
 
     setupCamera();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      isMounted = false;
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
     };
   }, [facingMode]);
